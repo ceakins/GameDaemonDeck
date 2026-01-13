@@ -3,6 +3,7 @@ package io.github.ceakins.daemondeck.util;
 import org.glavo.rcon.AuthenticationException;
 import org.glavo.rcon.Rcon;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -10,7 +11,8 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -33,9 +35,8 @@ public class RCONClientManagerTest {
     @Test
     public void testConnect() throws IOException, AuthenticationException {
         rconClientManager.connect();
-        // Verify that the Rcon constructor was called (or in our case, the mock was used)
-        // Since we inject the mock, we just need to make sure the internal 'rcon' field is set.
-        // This is implicitly tested by subsequent sendCommand calls not throwing "Not connected".
+        // Since mockRcon is injected, connect() just assigns it. No actual Rcon.open() call.
+        // The implicit check is that no exception is thrown during connection.
     }
 
     @Test
