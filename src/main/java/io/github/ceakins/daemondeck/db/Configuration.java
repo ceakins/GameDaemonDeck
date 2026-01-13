@@ -2,6 +2,7 @@ package io.github.ceakins.daemondeck.db;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 public class Configuration implements Serializable {
 

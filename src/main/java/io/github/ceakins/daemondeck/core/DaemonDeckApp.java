@@ -2,6 +2,8 @@ package io.github.ceakins.daemondeck.core;
 
 import io.github.ceakins.daemondeck.db.ConfigStore;
 import io.github.ceakins.daemondeck.db.Configuration;
+import io.github.ceakins.daemondeck.db.DiscordBot;
+import io.github.ceakins.daemondeck.db.DiscordWebhook;
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -14,11 +16,22 @@ import java.util.StringTokenizer;
 public class DaemonDeckApp {
 
     private static final ConfigStore configStore = ConfigStore.getInstance();
+    private static final DiscordService discordService = new DiscordService(configStore);
 
     public static void main(String[] args) {
         Javalin app = Javalin.create(config -> {
             // configuration here, if needed
         }).start(7070);
+
+        // Start all bots
+        discordService.startAllBots();
+
+        // Add a shutdown hook to stop all bots and close the database
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            discordService.stopAllBots();
+            configStore.close();
+        }));
+
 
         // Before-filter to redirect to /setup if not configured
         app.before(ctx -> {
@@ -97,7 +110,29 @@ public class DaemonDeckApp {
         // Authenticated routes
         app.get("/", ctx -> ctx.html("<h1>Welcome to DaemonDeck!</h1>"));
 
-        // Add a shutdown hook to close the database
-        Runtime.getRuntime().addShutdownHook(new Thread(configStore::close));
+        // Discord Webhook routes
+        app.get("/api/discord/webhooks", ctx -> ctx.json(discordService.getAllWebhooks()));
+        app.post("/api/discord/webhooks", ctx -> {
+            DiscordWebhook webhook = ctx.bodyAsClass(DiscordWebhook.class);
+            discordService.saveWebhook(webhook);
+            ctx.status(HttpStatus.CREATED);
+        });
+        app.delete("/api/discord/webhooks/{name}", ctx -> {
+            discordService.deleteWebhook(ctx.pathParam("name"));
+            ctx.status(HttpStatus.NO_CONTENT);
+        });
+
+        // Discord Bot routes
+        app.get("/api/discord/bots", ctx -> ctx.json(discordService.getAllBots()));
+        app.post("/api/discord/bots", ctx -> {
+            DiscordBot bot = ctx.bodyAsClass(DiscordBot.class);
+            discordService.saveBot(bot);
+            discordService.startBot(bot);
+            ctx.status(HttpStatus.CREATED);
+        });
+        app.delete("/api/discord/bots/{name}", ctx -> {
+            discordService.deleteBot(ctx.pathParam("name"));
+            ctx.status(HttpStatus.NO_CONTENT);
+        });
     }
 }

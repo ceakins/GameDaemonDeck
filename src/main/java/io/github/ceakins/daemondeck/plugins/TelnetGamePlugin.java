@@ -1,10 +1,14 @@
 package io.github.ceakins.daemondeck.plugins;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import okhttp3.*;
 import org.apache.commons.net.telnet.TelnetClient;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
@@ -14,6 +18,12 @@ public class TelnetGamePlugin implements GamePlugin {
     private InputStream in;
     private PrintStream out;
     private Process serverProcess;
+    private final OkHttpClient httpClient = new OkHttpClient();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+
+    public TelnetGamePlugin() {
+    }
 
     @Override
     public String getName() {
@@ -24,6 +34,7 @@ public class TelnetGamePlugin implements GamePlugin {
     public void startServer(Path serverPath) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(serverPath.toString());
         serverProcess = pb.start();
+        sendWebhookMessage(getName() + " server started.");
         // In a real scenario, you'd wait for the server to be ready
         connect("localhost", 27015);
     }
@@ -34,6 +45,7 @@ public class TelnetGamePlugin implements GamePlugin {
         if (serverProcess != null) {
             serverProcess.destroy();
         }
+        sendWebhookMessage(getName() + " server stopped.");
     }
 
     @Override
@@ -51,6 +63,11 @@ public class TelnetGamePlugin implements GamePlugin {
         } catch (Exception e) {
             throw new IOException("Failed to send command", e);
         }
+    }
+
+    @Override
+    public String getBotName() {
+        return "TelnetGameBot";
     }
 
     private void connect(String server, int port) throws IOException {
@@ -83,6 +100,29 @@ public class TelnetGamePlugin implements GamePlugin {
     private void disconnect() throws IOException {
         if (telnet != null && telnet.isConnected()) {
             telnet.disconnect();
+        }
+    }
+
+    private void sendWebhookMessage(String content) {
+        // In a real app, the webhook URL would be configurable
+        String webhookUrl = "YOUR_WEBHOOK_URL";
+        try {
+            Map<String, String> payload = Map.of("content", content);
+            RequestBody body = RequestBody.create(
+                    objectMapper.writeValueAsString(payload),
+                    MediaType.get("application/json; charset=utf-8")
+            );
+
+            Request request = new Request.Builder()
+                    .url(webhookUrl)
+                    .post(body)
+                    .build();
+
+            try (Response response = httpClient.newCall(request).execute()) {
+                // Log response if needed
+            }
+        } catch (IOException e) {
+            // Log error
         }
     }
 }
