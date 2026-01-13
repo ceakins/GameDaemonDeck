@@ -10,20 +10,7 @@
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <nitrite.version>4.2.0</nitrite.version>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.dizitart</groupId>
-                <artifactId>nitrite-bom</artifactId>
-                <version>${nitrite.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <!-- Web server -->
@@ -57,14 +44,11 @@
             <version>3.10.0</version>
         </dependency>
 
-        <!-- Embedded NoSQL Database -->
+        <!-- Embedded Database -->
         <dependency>
-            <groupId>org.dizitart</groupId>
-            <artifactId>nitrite</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.dizitart</groupId>
-            <artifactId>nitrite-mvstore-adapter</artifactId>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2-mvstore</artifactId>
+            <version>2.2.224</version>
         </dependency>
 
         <!-- Password Hashing -->
@@ -84,6 +68,14 @@
                 <configuration>
                     <release>21</release>
                     <compilerArgs>--enable-preview</compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <mainClass>io.github.ceakins.daemondeck.core.DaemonDeckApp</mainClass>
                 </configuration>
             </plugin>
         </plugins>

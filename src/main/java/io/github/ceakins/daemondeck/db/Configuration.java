@@ -1,30 +1,18 @@
 package io.github.ceakins.daemondeck.db;
 
-import org.dizitart.no2.collection.NitriteId;
-import org.dizitart.no2.repository.annotations.Entity;
-import org.dizitart.no2.repository.annotations.Id;
+import java.io.Serializable;
+import java.util.List;
 
-import java.util.Set;
+public class Configuration implements Serializable {
 
-@Entity
-public class Configuration {
+    private static final long serialVersionUID = 1L;
 
-    @Id
-    private NitriteId id;
     private String adminUsername;
     private String adminPasswordHash;
     private String steamCmdPath;
-    private Set<String> allowedIps;
+    private List<String> allowedIps;
 
     public Configuration() {
-    }
-
-    public NitriteId getId() {
-        return id;
-    }
-
-    public void setId(NitriteId id) {
-        this.id = id;
     }
 
     public String getAdminUsername() {
@@ -51,11 +39,11 @@ public class Configuration {
         this.steamCmdPath = steamCmdPath;
     }
 
-    public Set<String> getAllowedIps() {
+    public List<String> getAllowedIps() {
         return allowedIps;
     }
 
-    public void setAllowedIps(Set<String> allowedIps) {
+    public void setAllowedIps(List<String> allowedIps) {
         this.allowedIps = allowedIps;
     }
 }

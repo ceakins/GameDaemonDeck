@@ -1,26 +1,23 @@
 package io.github.ceakins.daemondeck.db;
 
-import org.dizitart.no2.Nitrite;
-import org.dizitart.no2.mvstore.MVStoreModule;
-import org.dizitart.no2.repository.ObjectRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.h2.mvstore.MVMap;
+import org.h2.mvstore.MVStore;
 
+import java.io.IOException;
 import java.util.Optional;
 
 public class ConfigStore {
 
     private static ConfigStore instance;
-    private final Nitrite db;
-    private final ObjectRepository<Configuration> configRepository;
+    private final MVStore store;
+    private final ObjectMapper objectMapper;
+
+    private static final String CONFIG_KEY = "configuration";
 
     private ConfigStore() {
-        MVStoreModule storeModule = MVStoreModule.withConfig()
-                .filePath("daemondeck.db")
-                .build();
-
-        this.db = Nitrite.builder()
-                .loadModule(storeModule)
-                .openOrCreate();
-        this.configRepository = db.getRepository(Configuration.class);
+        this.store = MVStore.open("daemondeck.db");
+        this.objectMapper = new ObjectMapper();
     }
 
     public static synchronized ConfigStore getInstance() {
@@ -31,26 +28,40 @@ public class ConfigStore {
     }
 
     public Optional<Configuration> getConfiguration() {
-        return configRepository.find().toList().stream().findFirst();
-    }
-
-    public void saveConfiguration(Configuration config) {
-        Optional<Configuration> existingConfig = getConfiguration();
-        if (existingConfig.isPresent()) {
-            config.setId(existingConfig.get().getId());
-            configRepository.update(config);
-        } else {
-            configRepository.insert(config);
+        MVMap<String, String> configMap = store.openMap("config");
+        String configJson = configMap.get(CONFIG_KEY);
+        if (configJson == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(configJson, Configuration.class));
+        } catch (IOException e) {
+            // Log the error
+            return Optional.empty();
         }
     }
 
+    public void saveConfiguration(Configuration config) {
+        MVMap<String, String> configMap = store.openMap("config");
+        try {
+            String configJson = objectMapper.writeValueAsString(config);
+            configMap.put(CONFIG_KEY, configJson);
+            store.commit();
+        } catch (IOException e) {
+            // Log the error
+        }
+    }
+
+
+
     public boolean isConfigured() {
-        return configRepository.size() > 0;
+        MVMap<String, String> configMap = store.openMap("config");
+        return configMap.containsKey(CONFIG_KEY);
     }
 
     public void close() {
-        if (db != null && !db.isClosed()) {
-            db.close();
+        if (store != null && !store.isClosed()) {
+            store.close();
         }
     }
 }

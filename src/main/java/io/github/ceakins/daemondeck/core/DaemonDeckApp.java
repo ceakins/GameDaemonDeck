@@ -87,7 +87,7 @@ public class DaemonDeckApp {
             newConfig.setAdminUsername(adminUsername);
             newConfig.setAdminPasswordHash(hashedPassword);
             newConfig.setSteamCmdPath(steamCmdPath);
-            newConfig.setAllowedIps(Collections.emptySet());
+            newConfig.setAllowedIps(Collections.emptyList());
 
             configStore.saveConfiguration(newConfig);
 
