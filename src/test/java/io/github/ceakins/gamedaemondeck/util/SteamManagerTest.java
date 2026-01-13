@@ -1,7 +1,7 @@
-package io.github.ceakins.daemondeck.util;
+package io.github.ceakins.gamedaemondeck.util;
 
-import io.github.ceakins.daemondeck.db.ConfigStore;
-import io.github.ceakins.daemondeck.db.Configuration;
+import io.github.ceakins.gamedaemondeck.db.ConfigStore;
+import io.github.ceakins.gamedaemondeck.db.Configuration;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;

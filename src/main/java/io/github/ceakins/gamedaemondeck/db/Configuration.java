@@ -1,4 +1,4 @@
-package io.github.ceakins.daemondeck.db;
+package io.github.ceakins.gamedaemondeck.db;
 
 import java.io.Serializable;
 import java.util.List;
@@ -12,8 +12,17 @@ public class Configuration implements Serializable {
     private String adminPasswordHash;
     private String steamCmdPath;
     private List<String> allowedIps;
+    private int sessionTimeoutSeconds;
 
     public Configuration() {
+    }
+
+    public int getSessionTimeoutSeconds() {
+        return sessionTimeoutSeconds;
+    }
+
+    public void setSessionTimeoutSeconds(int sessionTimeoutSeconds) {
+        this.sessionTimeoutSeconds = sessionTimeoutSeconds;
     }
 
     public String getAdminUsername() {

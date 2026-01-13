@@ -1,4 +1,4 @@
-# DaemonDeck
+# GameDaemonDeck
 
 A simple, lightweight, and extensible game server manager.
 

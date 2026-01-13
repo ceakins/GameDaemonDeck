@@ -1,4 +1,4 @@
-package io.github.ceakins.daemondeck.util;
+package io.github.ceakins.gamedaemondeck.util;
 
 import org.glavo.rcon.AuthenticationException;
 import org.glavo.rcon.Rcon;

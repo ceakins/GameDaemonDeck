@@ -1,4 +1,4 @@
-package io.github.ceakins.daemondeck.util;
+package io.github.ceakins.gamedaemondeck.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.MediaType;

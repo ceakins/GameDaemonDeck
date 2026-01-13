@@ -1,9 +1,9 @@
-package io.github.ceakins.daemondeck.core;
+package io.github.ceakins.gamedaemondeck.core;
 
-import io.github.ceakins.daemondeck.db.ConfigStore;
-import io.github.ceakins.daemondeck.db.Configuration;
-import io.github.ceakins.daemondeck.db.DiscordBot;
-import io.github.ceakins.daemondeck.db.DiscordWebhook;
+import io.github.ceakins.gamedaemondeck.db.ConfigStore;
+import io.github.ceakins.gamedaemondeck.db.Configuration;
+import io.github.ceakins.gamedaemondeck.db.DiscordBot;
+import io.github.ceakins.gamedaemondeck.db.DiscordWebhook;
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
 import io.javalin.rendering.template.JavalinThymeleaf;
@@ -96,10 +96,23 @@ public class DaemonDeckApp {
             String adminUsername = ctx.formParam("adminUsername");
             String adminPassword = ctx.formParam("adminPassword");
             String steamCmdPath = ctx.formParam("steamCmdPath");
+            String sessionTimeoutSecondsParam = ctx.formParam("sessionTimeoutSeconds");
 
-            if (adminUsername == null || adminPassword == null || steamCmdPath == null ||
-                adminUsername.isBlank() || adminPassword.isBlank() || steamCmdPath.isBlank()) {
+            if (adminUsername == null || adminPassword == null || steamCmdPath == null || sessionTimeoutSecondsParam == null ||
+                adminUsername.isBlank() || adminPassword.isBlank() || steamCmdPath.isBlank() || sessionTimeoutSecondsParam.isBlank()) {
                 ctx.status(HttpStatus.BAD_REQUEST).result("All fields are required.");
+                return;
+            }
+
+            int sessionTimeoutSeconds;
+            try {
+                sessionTimeoutSeconds = Integer.parseInt(sessionTimeoutSecondsParam);
+                if (sessionTimeoutSeconds <= 0) {
+                    ctx.status(HttpStatus.BAD_REQUEST).result("Session Timeout must be a positive integer.");
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                ctx.status(HttpStatus.BAD_REQUEST).result("Session Timeout must be a valid number.");
                 return;
             }
 
@@ -110,6 +123,7 @@ public class DaemonDeckApp {
             newConfig.setAdminPasswordHash(hashedPassword);
             newConfig.setSteamCmdPath(steamCmdPath);
             newConfig.setAllowedIps(Collections.emptyList());
+            newConfig.setSessionTimeoutSeconds(sessionTimeoutSeconds);
 
             configStore.saveConfiguration(newConfig);
 
@@ -117,7 +131,14 @@ public class DaemonDeckApp {
         });
 
         // Authenticated routes
-        app.get("/", ctx -> ctx.render("templates/index.html", Map.of("title", "Welcome")));
+        app.get("/", ctx -> {
+            configStore.getConfiguration().ifPresent(config -> {
+                ctx.render("templates/index.html", Map.of(
+                    "title", "Welcome to GameDaemonDeck",
+                    "sessionTimeoutSeconds", config.getSessionTimeoutSeconds()
+                ));
+            });
+        });
 
         // Discord Webhook routes
         app.get("/api/discord/webhooks", ctx -> ctx.json(discordService.getAllWebhooks()));

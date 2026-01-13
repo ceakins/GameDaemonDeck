@@ -1,4 +1,4 @@
-package io.github.ceakins.daemondeck.db;
+package io.github.ceakins.gamedaemondeck.db;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,6 +6,9 @@ import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVStore;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -19,6 +22,8 @@ public class ConfigStore {
     private static final String CONFIG_KEY = "configuration";
     private static final String WEBHOOKS_MAP = "webhooks";
     private static final String BOTS_MAP = "bots";
+    private static final String DB_FILE_NAME = "gamedaemondeck.db";
+    private static final String DATA_DIR = "data";
 
     // For testing
     ConfigStore(MVStore store, ObjectMapper objectMapper) {
@@ -27,7 +32,15 @@ public class ConfigStore {
     }
 
     private ConfigStore() {
-        this.store = MVStore.open("daemondeck.db");
+        Path dataDirPath = Paths.get(DATA_DIR);
+        try {
+            if (!Files.exists(dataDirPath)) {
+                Files.createDirectories(dataDirPath);
+            }
+        } catch (IOException e) {
+            e.printStackTrace(); // Log error or handle appropriately
+        }
+        this.store = MVStore.open(dataDirPath.resolve(DB_FILE_NAME).toString());
         this.objectMapper = new ObjectMapper();
     }
 

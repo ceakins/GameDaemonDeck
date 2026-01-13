@@ -1,4 +1,4 @@
-package io.github.ceakins.daemondeck.db;
+package io.github.ceakins.gamedaemondeck.db;
 
 import java.io.Serializable;
 

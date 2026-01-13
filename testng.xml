@@ -2,13 +2,13 @@
 <suite name="DaemonDeckSuite" verbose="1" >
     <test name="DaemonDeckTests" >
         <classes>
-            <class name="io.github.ceakins.daemondeck.db.ConfigStoreTest" />
-            <class name="io.github.ceakins.daemondeck.core.DiscordServiceTest" />
-            <class name="io.github.ceakins.daemondeck.util.SteamManagerTest" />
-            <class name="io.github.ceakins.daemondeck.util.TelnetClientManagerTest" />
-            <class name="io.github.ceakins.daemondeck.util.RCONClientManagerTest" />
-            <class name="io.github.ceakins.daemondeck.util.DefaultWebhookSenderTest" />
-            <class name="io.github.ceakins.daemondeck.core.DaemonDeckAppTest" />
+            <class name="io.github.ceakins.gamedaemondeck.db.ConfigStoreTest" />
+            <class name="io.github.ceakins.gamedaemondeck.core.DiscordServiceTest" />
+            <class name="io.github.ceakins.gamedaemondeck.util.SteamManagerTest" />
+            <class name="io.github.ceakins.gamedaemondeck.util.TelnetClientManagerTest" />
+            <class name="io.github.ceakins.gamedaemondeck.util.RCONClientManagerTest" />
+            <class name="io.github.ceakins.gamedaemondeck.util.DefaultWebhookSenderTest" />
+            <class name="io.github.ceakins.gamedaemondeck.core.DaemonDeckAppTest" />
         </classes>
     </test>
 </suite>

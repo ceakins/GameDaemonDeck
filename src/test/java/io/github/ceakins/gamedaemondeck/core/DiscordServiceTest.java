@@ -1,8 +1,8 @@
-package io.github.ceakins.daemondeck.core;
+package io.github.ceakins.gamedaemondeck.core;
 
-import io.github.ceakins.daemondeck.db.ConfigStore;
-import io.github.ceakins.daemondeck.db.DiscordBot;
-import io.github.ceakins.daemondeck.db.DiscordWebhook;
+import io.github.ceakins.gamedaemondeck.db.ConfigStore;
+import io.github.ceakins.gamedaemondeck.db.DiscordBot;
+import io.github.ceakins.gamedaemondeck.db.DiscordWebhook;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.requests.GatewayIntent;

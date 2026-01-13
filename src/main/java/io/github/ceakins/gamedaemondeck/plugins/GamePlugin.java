@@ -1,4 +1,4 @@
-package io.github.ceakins.daemondeck.plugins;
+package io.github.ceakins.gamedaemondeck.plugins;
 
 import java.io.IOException;
 import java.nio.file.Path;

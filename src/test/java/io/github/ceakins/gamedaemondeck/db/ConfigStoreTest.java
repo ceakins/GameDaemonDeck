@@ -1,4 +1,4 @@
-package io.github.ceakins.daemondeck.db;
+package io.github.ceakins.gamedaemondeck.db;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
