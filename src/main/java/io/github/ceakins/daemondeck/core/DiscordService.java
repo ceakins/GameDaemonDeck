@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DiscordService {
 
     private final ConfigStore configStore;
-    private final Map<String, JDA> runningBots = new ConcurrentHashMap<>();
+    final Map<String, JDA> runningBots = new ConcurrentHashMap<>();
 
     public DiscordService(ConfigStore configStore) {
         this.configStore = configStore;

@@ -3,6 +3,7 @@
     <test name="DaemonDeckTests" >
         <classes>
             <class name="io.github.ceakins.daemondeck.db.ConfigStoreTest" />
+            <class name="io.github.ceakins.daemondeck.core.DiscordServiceTest" />
         </classes>
     </test>
 </suite>
