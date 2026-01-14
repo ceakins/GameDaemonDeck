@@ -21,6 +21,27 @@
         <h1 class="text-center">Welcome to Game Daemon Deck!</h1>
         <p class="text-center">Your game server manager is up and running.</p>
 
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        Game Daemon Deck Configuration
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="steamCmdPath" class="form-label">SteamCMD Path:</label>
+                            <input type="text" id="steamCmdPath" class="form-control" th:value="${steamCmdPath}" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="sessionTimeoutSeconds" class="form-label">Session Timeout (seconds):</label>
+                            <input type="number" id="sessionTimeoutSeconds" class="form-control" th:value="${sessionTimeoutSeconds}" disabled>
+                        </div>
+                        <!-- Add other configuration fields here as needed -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <footer class="footer mt-auto py-3 bg-light">
             <div class="container">
                 <p class="text-center text-muted">© Charles L. Eakins, 2026</p>

@@ -127,8 +127,9 @@ public class GameDaemonDeckApp {
         app.get("/", ctx -> {
             configStore.getConfiguration().ifPresent(config -> {
                 ctx.render("templates/index.html", Map.of(
-                    "title", "Welcome to GameDaemonDeck",
-                    "sessionTimeoutSeconds", config.getSessionTimeoutSeconds()
+                    "title", "Welcome to Game Daemon Deck",
+                    "sessionTimeoutSeconds", config.getSessionTimeoutSeconds(),
+                    "steamCmdPath", config.getSteamCmdPath() // Add steamCmdPath
                 ));
             });
         });
