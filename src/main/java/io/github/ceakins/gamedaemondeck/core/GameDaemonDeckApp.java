@@ -270,6 +270,12 @@ public class GameDaemonDeckApp {
         });
 
         app.get("/login", ctx -> {
+            // Check if user is already logged in (has an active session)
+            if (ctx.sessionAttribute("username") != null) {
+                ctx.redirect("/", HttpStatus.FOUND); // Redirect to dashboard if logged in
+                return;
+            }
+
             String message = ctx.queryParam("message");
             Map<String, Object> model = new HashMap<>();
             model.put("title", "Login");
