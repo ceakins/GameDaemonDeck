@@ -12,6 +12,7 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.StringTokenizer;
 
@@ -50,34 +51,26 @@ public class DaemonDeckApp {
             }
         });
 
-        // Before-filter for Basic Authentication on all routes except /setup
+        // Session-based authentication before-filter
         app.before(ctx -> {
-            if (ctx.path().equals("/setup") || !configStore.isConfigured()) {
+            // Exclude /setup, /login from session check
+            if (ctx.path().equals("/setup") || ctx.path().equals("/login")) {
                 return;
             }
 
-            Optional<String> authHeader = Optional.ofNullable(ctx.header("Authorization"));
-            if (authHeader.isEmpty() || !authHeader.get().startsWith("Basic ")) {
-                ctx.header("WWW-Authenticate", "Basic").status(HttpStatus.UNAUTHORIZED);
+            // If not configured, always redirect to setup
+            if (!configStore.isConfigured()) {
+                ctx.redirect("/setup", HttpStatus.FOUND);
                 return;
             }
 
-            String base64Credentials = authHeader.get().substring("Basic ".length());
-            String credentials = new String(Base64.getDecoder().decode(base64Credentials));
-            final StringTokenizer tokenizer = new StringTokenizer(credentials, ":");
-            if (tokenizer.countTokens() < 2) {
-                ctx.header("WWW-Authenticate", "Basic").status(HttpStatus.UNAUTHORIZED);
-                return;
-            }
-            final String username = tokenizer.nextToken();
-            final String password = tokenizer.nextToken();
-
-            Configuration config = configStore.getConfiguration().orElseThrow();
-            if (!config.getAdminUsername().equals(username) || !BCrypt.checkpw(password, config.getAdminPasswordHash())) {
-                ctx.header("WWW-authenticate", "Basic").status(HttpStatus.UNAUTHORIZED);
+            // Check for session attribute
+            String username = ctx.sessionAttribute("username");
+            if (username == null) {
+                // No active session, redirect to login with a message
+                ctx.redirect("/login?message=Your session has expired or you need to log in.", HttpStatus.FOUND);
             }
         });
-
 
         // Setup routes
         app.get("/setup", ctx -> {
@@ -85,7 +78,7 @@ public class DaemonDeckApp {
                 ctx.redirect("/", HttpStatus.FOUND);
                 return;
             }
-            ctx.render("templates/Setup.html", Map.of("title", "DaemonDeck Setup"));
+            ctx.render("templates/Setup.html", Map.of("title", "GameDaemonDeck Setup"));
         });
 
         app.post("/setup", ctx -> {
@@ -165,17 +158,45 @@ public class DaemonDeckApp {
             ctx.status(HttpStatus.NO_CONTENT);
         });
 
-        // Session Management routes
-        app.post("/api/session/renew", ctx -> {
-            // If the request reaches here, it means Basic Auth was successful,
-            // implicitly renewing the "session" from the server's perspective.
-            ctx.status(HttpStatus.OK).result("Session renewed.");
+        app.get("/login", ctx -> {
+            String message = ctx.queryParam("message");
+            Map<String, Object> model = new HashMap<>();
+            model.put("title", "Login");
+            if (message != null) {
+                model.put("message", message);
+            }
+            ctx.render("templates/login.html", model);
+        });
+
+        app.post("/login", ctx -> {
+            String username = ctx.formParam("username");
+            String password = ctx.formParam("password");
+
+            Optional<Configuration> configOptional = configStore.getConfiguration();
+
+            if (configOptional.isEmpty()) {
+                ctx.redirect("/setup", HttpStatus.FOUND); // Should not happen if setup before filter works
+                return;
+            }
+
+            Configuration config = configOptional.get();
+
+            if (username != null && password != null &&
+                config.getAdminUsername().equals(username) &&
+                BCrypt.checkpw(password, config.getAdminPasswordHash())) {
+                // Successful login
+                ctx.sessionAttribute("username", username);
+                ctx.redirect("/", HttpStatus.FOUND);
+            } else {
+                // Failed login
+                ctx.redirect("/login?message=Invalid username or password.", HttpStatus.FOUND);
+            }
         });
 
         app.get("/logout", ctx -> {
-            // For Basic Auth, logging out is primarily handled client-side by clearing credentials.
-            // On the server, we can simply instruct the client to clear them.
-            ctx.header("WWW-Authenticate", "Basic realm=\"DaemonDeck\"").status(HttpStatus.UNAUTHORIZED).redirect("/login", HttpStatus.FOUND);
+            // Invalidate session
+            ctx.sessionAttribute("username", null);
+            ctx.redirect("/login?message=You have been successfully logged out.", HttpStatus.FOUND);
         });
     }
 
