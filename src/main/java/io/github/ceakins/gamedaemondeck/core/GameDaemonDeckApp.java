@@ -40,6 +40,38 @@ public class GameDaemonDeckApp {
             });
         });
 
+        // Add error handlers directly on the app instance
+        app.exception(Exception.class, (e, ctx) -> {
+            e.printStackTrace();
+            ctx.render("templates/error.html", Map.of(
+                "title", "Game Daemon Deck - Error",
+                "header", "An Unexpected Error Occurred",
+                "message", "Something went wrong: " + e.getMessage(),
+                "returnUrl", "/",
+                "returnText", "Dashboard"
+            ));
+        });
+
+        app.error(HttpStatus.FORBIDDEN.getCode(), ctx -> { // Corrected: .getCode()
+            ctx.render("templates/error.html", Map.of(
+                "title", "Game Daemon Deck - Access Denied",
+                "header", "Access Denied",
+                "message", "You do not have permission to perform this action.",
+                "returnUrl", "/",
+                "returnText", "Dashboard"
+            ));
+        });
+
+        app.error(HttpStatus.NOT_FOUND.getCode(), ctx -> { // Corrected: .getCode()
+            ctx.render("templates/error.html", Map.of(
+                "title", "Game Daemon Deck - Not Found",
+                "header", "Page Not Found",
+                "message", "The page you requested could not be found.",
+                "returnUrl", "/",
+                "returnText", "Dashboard"
+            ));
+        });
+
         // Start all bots
         discordService.startAllBots();
 
@@ -89,7 +121,13 @@ public class GameDaemonDeckApp {
 
         app.post("/setup", ctx -> {
             if (configStore.isConfigured()) {
-                ctx.status(HttpStatus.FORBIDDEN).result("Already configured.");
+                ctx.render("templates/error.html", Map.of(
+                    "title", "Game Daemon Deck - Error",
+                    "header", "Configuration Error",
+                    "message", "The application is already configured. Please navigate to the dashboard.",
+                    "returnUrl", "/",
+                    "returnText", "Dashboard"
+                ));
                 return;
             }
             String adminUsername = ctx.formParam("adminUsername");
@@ -99,7 +137,13 @@ public class GameDaemonDeckApp {
 
             if (adminUsername == null || adminPassword == null || steamCmdPath == null || sessionTimeoutSecondsParam == null ||
                 adminUsername.isBlank() || adminPassword.isBlank() || steamCmdPath.isBlank() || sessionTimeoutSecondsParam.isBlank()) {
-                ctx.status(HttpStatus.BAD_REQUEST).result("All fields are required.");
+                ctx.render("templates/error.html", Map.of(
+                    "title", "Game Daemon Deck - Error",
+                    "header", "Setup Error",
+                    "message", "All fields are required for initial setup.",
+                    "returnUrl", "/setup",
+                    "returnText", "Setup Page"
+                ));
                 return;
             }
 
@@ -107,11 +151,23 @@ public class GameDaemonDeckApp {
             try {
                 sessionTimeoutSeconds = Integer.parseInt(sessionTimeoutSecondsParam);
                 if (sessionTimeoutSeconds <= 0) {
-                    ctx.status(HttpStatus.BAD_REQUEST).result("Session Timeout must be a positive integer.");
+                    ctx.render("templates/error.html", Map.of(
+                        "title", "Game Daemon Deck - Error",
+                        "header", "Setup Error",
+                        "message", "Session Timeout must be a positive integer.",
+                        "returnUrl", "/setup",
+                        "returnText", "Setup Page"
+                    ));
                     return;
                 }
             } catch (NumberFormatException e) {
-                ctx.status(HttpStatus.BAD_REQUEST).result("Session Timeout must be a valid number.");
+                ctx.render("templates/error.html", Map.of(
+                    "title", "Game Daemon Deck - Error",
+                    "header", "Setup Error",
+                    "message", "Session Timeout must be a valid number.",
+                    "returnUrl", "/setup",
+                    "returnText", "Setup Page"
+                ));
                 return;
             }
 
