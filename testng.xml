@@ -8,7 +8,7 @@
             <class name="io.github.ceakins.gamedaemondeck.util.TelnetClientManagerTest" />
             <class name="io.github.ceakins.gamedaemondeck.util.RCONClientManagerTest" />
             <class name="io.github.ceakins.gamedaemondeck.util.DefaultWebhookSenderTest" />
-            <class name="io.github.ceakins.gamedaemondeck.core.DaemonDeckAppTest" />
+            <class name="io.github.ceakins.gamedaemondeck.core.GameDaemonDeckAppTest" />
         </classes>
     </test>
 </suite>

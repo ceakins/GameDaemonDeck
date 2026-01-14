@@ -16,17 +16,17 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.StringTokenizer;
 
-public class DaemonDeckApp {
+public class GameDaemonDeckApp {
 
     private final ConfigStore configStore;
     private final DiscordService discordService;
     public final io.javalin.Javalin app;
 
-    public DaemonDeckApp() {
+    public GameDaemonDeckApp() {
         this(ConfigStore.getInstance(), new DiscordService(ConfigStore.getInstance()));
     }
 
-    public DaemonDeckApp(ConfigStore configStore, DiscordService discordService) {
+    public GameDaemonDeckApp(ConfigStore configStore, DiscordService discordService) {
         this.configStore = configStore;
         this.discordService = discordService;
 
@@ -201,8 +201,8 @@ public class DaemonDeckApp {
     }
 
     public static void main(String[] args) {
-        DaemonDeckApp daemonDeckApp = new DaemonDeckApp();
-        daemonDeckApp.start(7070);
+        GameDaemonDeckApp gameDaemonDeckApp = new GameDaemonDeckApp();
+        gameDaemonDeckApp.start(7070);
     }
 
     public void start(int port) {
