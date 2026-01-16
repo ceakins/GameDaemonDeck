@@ -151,7 +151,7 @@ public class GameDaemonDeckApp {
             try {
                 sessionTimeoutSeconds = Integer.parseInt(sessionTimeoutSecondsParam);
                 if (sessionTimeoutSeconds <= 0) {
-                    ctx.render("templates/error.html", Map.of(
+                    ctx.status(HttpStatus.BAD_REQUEST).render("templates/error.html", Map.of(
                         "title", "Game Daemon Deck - Error",
                         "header", "Setup Error",
                         "message", "Session Timeout must be a positive integer.",

@@ -194,13 +194,14 @@ public class GameDaemonDeckAppTest {
                 .build();
 
         try (Response response = client.newCall(request).execute()) {
+            String responseBody = response.body().string(); // Read once
             assertEquals(response.code(), 200);
-            assertTrue(response.body().string().contains("Welcome to GameDaemonDeck!"));
+            assertTrue(responseBody.contains("Welcome to Game Daemon Deck!"));
         }
     }
 
     @Test
-    public void testMainPageRendersSessionTimeout() throws IOException {
+    public void testSettingsPageRendersSessionTimeout() throws IOException {
         Configuration config = new Configuration();
         config.setAdminUsername("admin");
         config.setAdminPasswordHash(BCrypt.hashpw("password", BCrypt.gensalt()));
@@ -211,13 +212,12 @@ public class GameDaemonDeckAppTest {
         performLogin("admin", "password"); // Perform login to establish session
 
         Request request = new Request.Builder()
-                .url("http://localhost:" + app.port() + "/")
+                .url("http://localhost:" + app.port() + "/settings")
                 .build();
 
         try (Response response = client.newCall(request).execute()) { // Use the client with cookieJar
             String responseBody = response.body().string();
             assertEquals(response.code(), 200);
-            assertTrue(responseBody.contains("Welcome to GameDaemonDeck!"));
             assertTrue(responseBody.contains("const sessionTimeoutSeconds =") && responseBody.contains("1800;"));
         }
     }
