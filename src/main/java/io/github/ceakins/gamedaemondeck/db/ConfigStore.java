@@ -22,6 +22,7 @@ public class ConfigStore {
     private static final String CONFIG_KEY = "configuration";
     private static final String WEBHOOKS_MAP = "webhooks";
     private static final String BOTS_MAP = "bots";
+    private static final String SERVERS_MAP = "servers";
     private static final String DB_FILE_NAME = "gamedaemondeck.db";
     private static final String DATA_DIR = "data";
 
@@ -164,6 +165,35 @@ public class ConfigStore {
     public void deleteBot(String name) {
         MVMap<String, String> botsMap = store.openMap(BOTS_MAP);
         botsMap.remove(name);
+        store.commit();
+    }
+
+    public void saveServer(GameServer server) {
+        MVMap<String, String> serversMap = store.openMap(SERVERS_MAP);
+        try {
+            String serverJson = objectMapper.writeValueAsString(server);
+            serversMap.put(server.getName(), serverJson);
+            store.commit();
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<GameServer> getServers() {
+        MVMap<String, String> serversMap = store.openMap(SERVERS_MAP);
+        return serversMap.values().stream().map(serverJson -> {
+            try {
+                return objectMapper.readValue(serverJson, GameServer.class);
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }).collect(Collectors.toList());
+    }
+
+    public void deleteServer(String name) {
+        MVMap<String, String> serversMap = store.openMap(SERVERS_MAP);
+        serversMap.remove(name);
         store.commit();
     }
 

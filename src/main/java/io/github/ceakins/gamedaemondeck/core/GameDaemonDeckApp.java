@@ -4,6 +4,7 @@ import io.github.ceakins.gamedaemondeck.db.ConfigStore;
 import io.github.ceakins.gamedaemondeck.db.Configuration;
 import io.github.ceakins.gamedaemondeck.db.DiscordBot;
 import io.github.ceakins.gamedaemondeck.db.DiscordWebhook;
+import io.github.ceakins.gamedaemondeck.db.GameServer;
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
 import io.javalin.rendering.template.JavalinThymeleaf;
@@ -20,15 +21,17 @@ public class GameDaemonDeckApp {
 
     private final ConfigStore configStore;
     private final DiscordService discordService;
+    private final PluginManager pluginManager;
     public final io.javalin.Javalin app;
 
     public GameDaemonDeckApp() {
-        this(ConfigStore.getInstance(), new DiscordService(ConfigStore.getInstance()));
+        this(ConfigStore.getInstance(), new DiscordService(ConfigStore.getInstance()), new PluginManager());
     }
 
-    public GameDaemonDeckApp(ConfigStore configStore, DiscordService discordService) {
+    public GameDaemonDeckApp(ConfigStore configStore, DiscordService discordService, PluginManager pluginManager) {
         this.configStore = configStore;
         this.discordService = discordService;
+        this.pluginManager = pluginManager;
 
         app = Javalin.create(config -> {
             config.fileRenderer(new JavalinThymeleaf());
@@ -190,10 +193,20 @@ public class GameDaemonDeckApp {
         app.get("/", ctx -> {
             configStore.getConfiguration().ifPresent(config -> {
                 ctx.render("templates/index.html", Map.of(
-                    "title", "Game Daemon Deck - Dashboard"
-                    // Other config values are not directly used in the main dashboard view, so remove them
+                    "title", "Game Daemon Deck - Dashboard",
+                    "servers", configStore.getServers(),
+                    "plugins", pluginManager.getPlugins()
                 ));
             });
+        });
+
+        app.post("/servers", ctx -> {
+            GameServer newServer = new GameServer();
+            newServer.setName(ctx.formParam("serverName"));
+            newServer.setAppId(ctx.formParam("appId"));
+            newServer.setPluginName(ctx.formParam("pluginName"));
+            configStore.saveServer(newServer);
+            ctx.redirect("/");
         });
 
         // Discord Webhook routes

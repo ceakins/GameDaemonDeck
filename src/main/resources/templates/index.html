@@ -118,13 +118,16 @@
                 <!-- Left Column (col-lg-8) -->
                 <div class="col-lg-8">
                     <div class="row">
-                        <!-- Server Card 1 (Trauma World) -->
-                        <div class="col-md-6 mb-4">
+                        <!-- Server Cards -->
+                        <div th:each="server : ${servers}" class="col-md-6 mb-4">
                             <div class="card shadow-sm h-100">
-                                <div class="card-header card-header-blue">Trauma World</div>
+                                <div class="card-header" th:classappend="${server.running} ? 'card-header-blue' : 'card-header-grey'" th:text="${server.name}">Server Name</div>
                                 <div class="card-body">
-                                    <p class="card-text">AppID: 2300320</p>
-                                    <p class="card-text">Status: <span class="text-success"><i class="bi bi-circle-fill"></i> Running</span></p>
+                                    <p class="card-text" th:text="'AppID: ' + ${server.appId}">AppID: N/A</p>
+                                    <p class="card-text">Status:
+                                        <span th:if="${server.running}" class="text-success"><i class="bi bi-circle-fill"></i> Running</span>
+                                        <span th:unless="${server.running}" class="text-danger"><i class="bi bi-circle-fill"></i> Stopped</span>
+                                    </p>
                                     <div class="d-flex justify-content-between">
                                         <button class="btn btn-sm btn-primary">Start</button>
                                         <button class="btn btn-sm btn-danger">Stop</button>
@@ -133,43 +136,13 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Server Card 2 (Minecraft) -->
-                        <div class="col-md-6 mb-4">
-                            <div class="card shadow-sm h-100">
-                                <div class="card-header card-header-green">Minecraft Server</div>
-                                <div class="card-body">
-                                    <p class="card-text">AppID: N/A</p>
-                                    <p class="card-text">Status: <span class="text-warning"><i class="bi bi-exclamation-triangle-fill"></i> Update Required</span></p>
-                                    <div class="d-flex justify-content-between">
-                                        <button class="btn btn-sm btn-primary">Start</button>
-                                        <button class="btn btn-sm btn-danger">Stop</button>
-                                        <button class="btn btn-sm btn-teal">Update</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Resource Card -->
-                        <div class="col-md-6 mb-4">
-                            <div class="card shadow-sm h-100">
-                                <div class="card-header card-header-grey">System Performance</div>
-                                <div class="card-body">
-                                    <h6 class="card-title">CPU Usage</h6>
-                                    <div class="progress mb-2">
-                                        <div class="progress-bar bg-info" role="progressbar" style="width: 15%;" aria-valuenow="15" aria-valuemin="0" aria-valuemax="100">15%</div>
-                                    </div>
-                                    <h6 class="card-title mt-3">Memory Usage</h6>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-warning" role="progressbar" style="width: 30%;" aria-valuenow="30" aria-valuemin="0" aria-valuemax="100">300MB / 8GB</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+
                         <!-- Add Server Placeholder -->
                         <div class="col-md-6 mb-4">
                             <div class="card dashed-card shadow-sm h-100">
                                 <i class="bi bi-plus-circle"></i>
                                 <h5 class="mt-3">Add New Server</h5>
-                                <button class="btn btn-primary mt-3">Add Server</button>
+                                <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addServerModal">Add Server</button>
                             </div>
                         </div>
                     </div>
@@ -196,6 +169,37 @@
                             </ul>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Server Modal -->
+    <div class="modal fade" id="addServerModal" tabindex="-1" aria-labelledby="addServerModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addServerModalLabel">Add New Server</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/servers" method="post">
+                        <div class="mb-3">
+                            <label for="serverName" class="form-label">Server Name</label>
+                            <input type="text" class="form-control" id="serverName" name="serverName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="appId" class="form-label">AppID</label>
+                            <input type="text" class="form-control" id="appId" name="appId">
+                        </div>
+                        <div class="mb-3">
+                            <label for="pluginName" class="form-label">Game</label>
+                            <select class="form-select" id="pluginName" name="pluginName">
+                                <option th:each="plugin : ${plugins}" th:value="${plugin.name}" th:text="${plugin.name}"></option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Server</button>
+                    </form>
                 </div>
             </div>
         </div>

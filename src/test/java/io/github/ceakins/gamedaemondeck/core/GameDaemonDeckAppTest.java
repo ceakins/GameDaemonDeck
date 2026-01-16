@@ -38,6 +38,9 @@ public class GameDaemonDeckAppTest {
     @Mock
     private DiscordService discordService;
 
+    @Mock
+    private PluginManager pluginManager;
+
     private GameDaemonDeckApp gameDaemonDeckApp;
     private Javalin app;
     private final CookieJar cookieJar = new CookieJar() {
@@ -59,7 +62,7 @@ public class GameDaemonDeckAppTest {
     @BeforeMethod
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        gameDaemonDeckApp = new GameDaemonDeckApp(configStore, discordService);
+        gameDaemonDeckApp = new GameDaemonDeckApp(configStore, discordService, pluginManager);
         app = gameDaemonDeckApp.app;
         app.start(0); // Start on a random available port
     }
