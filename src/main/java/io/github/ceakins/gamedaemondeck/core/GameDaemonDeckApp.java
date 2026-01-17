@@ -217,6 +217,37 @@ public class GameDaemonDeckApp {
             ctx.redirect("/");
         });
 
+        app.post("/servers/config", ctx -> {
+            String serverName = ctx.formParam("serverName");
+            String serverPath = ctx.formParam("serverPath");
+            String commandLine = ctx.formParam("commandLine");
+
+            System.out.println("Saving server config for " + serverName + " with path " + serverPath + " and command line " + commandLine);
+
+            configStore.getServers().stream()
+                .filter(s -> s.getName().equals(serverName))
+                .findFirst()
+                .ifPresent(server -> {
+                    server.setServerPath(serverPath);
+                    server.setCommandLine(commandLine);
+                    configStore.saveServer(server);
+                });
+
+            ctx.redirect("/");
+        });
+
+        app.get("/servers/config-fields", ctx -> {
+            String pluginName = ctx.queryParam("pluginName");
+            if (pluginName != null) {
+                pluginManager.getPlugins().stream()
+                    .filter(p -> p.getName().equals(pluginName))
+                    .findFirst()
+                    .ifPresent(plugin -> ctx.json(plugin.getConfigFields()));
+            } else {
+                ctx.json(Collections.emptyList());
+            }
+        });
+
         // Discord Webhook routes
         app.get("/api/discord/webhooks", ctx -> ctx.json(discordService.getAllWebhooks()));
         app.post("/api/discord/webhooks", ctx -> {

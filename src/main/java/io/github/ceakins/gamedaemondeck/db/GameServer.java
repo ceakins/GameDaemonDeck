@@ -12,6 +12,8 @@ public class GameServer implements Serializable {
     private boolean running;
     private String headerColor;
     private String fontColor;
+    private String serverPath;
+    private String commandLine;
 
     public GameServer() {
     }
@@ -62,5 +64,21 @@ public class GameServer implements Serializable {
 
     public void setFontColor(String fontColor) {
         this.fontColor = fontColor;
+    }
+
+    public String getServerPath() {
+        return serverPath;
+    }
+
+    public void setServerPath(String serverPath) {
+        this.serverPath = serverPath;
+    }
+
+    public String getCommandLine() {
+        return commandLine;
+    }
+
+    public void setCommandLine(String commandLine) {
+        this.commandLine = commandLine;
     }
 }

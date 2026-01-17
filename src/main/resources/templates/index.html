@@ -123,7 +123,7 @@
                             <div class="card shadow-sm h-100">
                                 <div class="card-header d-flex justify-content-between" th:style="'background-color:' + ${server.headerColor} + '; color:' + ${server.fontColor}">
                                     <span th:text="${server.name}">Server Name</span>
-                                    <a href="#" class="btn btn-sm" th:style="'color:' + ${server.fontColor}"><i class="bi bi-gear"></i></a>
+                                    <a href="#" class="btn btn-sm" th:style="'color:' + ${server.fontColor}" data-bs-toggle="modal" data-bs-target="#serverConfigModal" th:attr="data-bs-server-name=${server.name}"><i class="bi bi-gear"></i></a>
                                 </div>
                                 <div class="card-body">
                                     <p class="card-text" th:text="'AppID: ' + ${server.appId}">AppID: N/A</p>
@@ -133,9 +133,9 @@
                                         <span th:unless="${server.running}" class="text-danger"><i class="bi bi-circle-fill"></i> Stopped</span>
                                     </p>
                                     <div class="d-flex justify-content-between">
-                                        <button class="btn btn-sm btn-primary">Start</button>
-                                        <button class="btn btn-sm btn-danger">Stop</button>
-                                        <button class="btn btn-sm btn-teal">Update</button>
+                                        <button class="btn btn-sm btn-primary" th:disabled="${server.serverPath == null or server.serverPath.isEmpty()}">Start</button>
+                                        <button class="btn btn-sm btn-danger" th:disabled="${server.serverPath == null or server.serverPath.isEmpty()}">Stop</button>
+                                        <button class="btn btn-sm btn-teal" th:disabled="${server.serverPath == null or server.serverPath.isEmpty()}">Update</button>
                                     </div>
                                 </div>
                             </div>
@@ -234,6 +234,25 @@
         </div>
     </div>
 
+    <!-- Server Configuration Modal -->
+    <div class="modal fade" id="serverConfigModal" tabindex="-1" aria-labelledby="serverConfigModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="serverConfigModalLabel">Server Configuration</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/servers/config" method="post">
+                        <input type="hidden" id="configServerName" name="serverName" value="">
+                        <div id="serverConfigFields"></div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <div class="container mt-4">
         <hr class="my-4">
@@ -241,8 +260,45 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+    <script th:inline="javascript">
         document.addEventListener('DOMContentLoaded', function () {
+            const serverConfigModal = document.getElementById('serverConfigModal');
+            serverConfigModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const serverName = button.getAttribute('data-bs-server-name');
+                const modalTitle = serverConfigModal.querySelector('.modal-title');
+                const serverNameInput = serverConfigModal.querySelector('#configServerName');
+                modalTitle.textContent = 'Configure ' + serverName;
+                serverNameInput.value = serverName;
+
+                // Find the server object from the servers list
+                const servers = /*[[${servers}]]*/ [];
+                const server = servers.find(s => s.name === serverName);
+                if (server) {
+                    fetch('/servers/config-fields?pluginName=' + server.pluginName)
+                        .then(response => response.json())
+                        .then(configFields => {
+                            const serverConfigFields = document.getElementById('serverConfigFields');
+                            serverConfigFields.innerHTML = '';
+                            configFields.forEach(field => {
+                                const div = document.createElement('div');
+                                div.classList.add('mb-3');
+                                const label = document.createElement('label');
+                                label.classList.add('form-label');
+                                label.textContent = field.label;
+                                const input = document.createElement('input');
+                                input.classList.add('form-control');
+                                input.type = field.type;
+                                input.name = field.name;
+                                input.value = server[field.name] || field.defaultValue;
+                                div.appendChild(label);
+                                div.appendChild(input);
+                                serverConfigFields.appendChild(div);
+                            });
+                        });
+                }
+            });
+
             const urlParams = new URLSearchParams(window.location.search);
             const error = urlParams.get('error');
             if (error === 'duplicate_server') {

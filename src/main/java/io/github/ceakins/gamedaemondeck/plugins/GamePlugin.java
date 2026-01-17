@@ -2,6 +2,8 @@ package io.github.ceakins.gamedaemondeck.plugins;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
 
 public interface GamePlugin {
 
@@ -12,4 +14,8 @@ public interface GamePlugin {
     void stopServer() throws IOException;
 
     String getBotName();
+
+    default List<ConfigField> getConfigFields() {
+        return Collections.emptyList();
+    }
 }
