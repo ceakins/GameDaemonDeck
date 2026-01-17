@@ -10,6 +10,8 @@ public class GameServer implements Serializable {
     private String appId;
     private String pluginName;
     private boolean running;
+    private String headerColor;
+    private String fontColor;
 
     public GameServer() {
     }
@@ -44,5 +46,21 @@ public class GameServer implements Serializable {
 
     public void setRunning(boolean running) {
         this.running = running;
+    }
+
+    public String getHeaderColor() {
+        return headerColor;
+    }
+
+    public void setHeaderColor(String headerColor) {
+        this.headerColor = headerColor;
+    }
+
+    public String getFontColor() {
+        return fontColor;
+    }
+
+    public void setFontColor(String fontColor) {
+        this.fontColor = fontColor;
     }
 }

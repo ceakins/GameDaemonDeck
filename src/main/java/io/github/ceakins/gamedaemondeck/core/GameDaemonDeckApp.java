@@ -201,10 +201,18 @@ public class GameDaemonDeckApp {
         });
 
         app.post("/servers", ctx -> {
+            String serverName = ctx.formParam("serverName");
+            if (configStore.getServers().stream().anyMatch(s -> s.getName().equals(serverName))) {
+                ctx.redirect("/?error=duplicate_server&serverName=" + serverName + "&appId=" + ctx.formParam("appId") + "&pluginName=" + ctx.formParam("pluginName") + "&headerColor=" + ctx.formParam("headerColor") + "&fontColor=" + ctx.formParam("fontColor"));
+                return;
+            }
+
             GameServer newServer = new GameServer();
-            newServer.setName(ctx.formParam("serverName"));
+            newServer.setName(serverName);
             newServer.setAppId(ctx.formParam("appId"));
             newServer.setPluginName(ctx.formParam("pluginName"));
+            newServer.setHeaderColor(ctx.formParam("headerColor"));
+            newServer.setFontColor(ctx.formParam("fontColor"));
             configStore.saveServer(newServer);
             ctx.redirect("/");
         });
