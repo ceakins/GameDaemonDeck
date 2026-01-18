@@ -1,5 +1,7 @@
 package io.github.ceakins.gamedaemondeck.plugins;
 
+import io.github.ceakins.gamedaemondeck.db.GameServer;
+import io.github.ceakins.gamedaemondeck.util.TelnetClientManager;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -10,6 +12,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -256,5 +259,67 @@ public class SevenDaysToDiePlugin implements GamePlugin {
             }
         }
         return null;
+    }
+
+    @Override
+    public void shutdownServer(GameServer server) throws IOException {
+        Map<String, String> params = new HashMap<>();
+        params.put("commandLine", server.getCommandLine());
+        Path configPath = getConfigFileFromParams(params);
+
+        if (configPath != null) {
+            // Resolve relative path if needed
+            if (!configPath.isAbsolute()) {
+                String serverPath = server.getServerPath();
+                if (serverPath.startsWith("\"") && serverPath.endsWith("\"")) {
+                    serverPath = serverPath.substring(1, serverPath.length() - 1);
+                }
+                Path serverDir = Paths.get(serverPath).getParent();
+                configPath = serverDir.resolve(configPath);
+            }
+
+            if (Files.exists(configPath)) {
+                Map<String, String> config = parseConfigFile(configPath);
+                String telnetEnabled = config.get("TelnetEnabled");
+                String telnetPortStr = config.get("TelnetPort");
+                String telnetPassword = config.get("TelnetPassword");
+
+                if ("true".equalsIgnoreCase(telnetEnabled) && telnetPortStr != null) {
+                    int telnetPort = Integer.parseInt(telnetPortStr);
+                    TelnetClientManager telnetManager = new TelnetClientManager();
+                    try {
+                        telnetManager.connect("localhost", telnetPort);
+                        
+                        // Wait for password prompt
+                        String response = telnetManager.readUntil("Please enter password:");
+                        if (response.contains("Please enter password:")) {
+                            telnetManager.sendCommand(telnetPassword, null, true); // Mask password in logs
+                        }
+
+                        // Read login response (wait up to 2 seconds)
+                        telnetManager.read(2000);
+
+                        // Send shutdown command
+                        telnetManager.sendCommand("shutdown", null);
+                        
+                        // Read shutdown response (wait up to 2 seconds)
+                        telnetManager.read(2000);
+
+                    } catch (Exception e) {
+                        throw new IOException("Telnet shutdown failed", e);
+                    } finally {
+                        try {
+                            telnetManager.disconnect();
+                        } catch (Exception e) {
+                            // Ignore disconnect errors
+                        }
+                    }
+                    return; // Success
+                }
+            }
+        }
+        
+        // Fallback if config not found or telnet disabled
+        throw new IOException("Telnet not configured or disabled");
     }
 }

@@ -1,5 +1,6 @@
 package io.github.ceakins.gamedaemondeck.plugins;
 
+import io.github.ceakins.gamedaemondeck.db.GameServer;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -38,5 +39,9 @@ public interface GamePlugin {
 
     default Path getConfigFileFromParams(Map<String, String> params) {
         return null;
+    }
+
+    default void shutdownServer(GameServer server) throws IOException {
+        stopServer(); // Default fallback
     }
 }

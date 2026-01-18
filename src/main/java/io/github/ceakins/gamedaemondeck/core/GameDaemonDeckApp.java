@@ -386,14 +386,46 @@ public class GameDaemonDeckApp {
                     return;
                 }
 
-                // Placeholder for graceful shutdown logic (Telnet/RCON)
-                // For now, we'll just kill the process if we have the handle, or use system kill command
-                
+                GamePlugin plugin = pluginManager.getPlugin(server.getPluginName());
+                if (plugin != null) {
+                    try {
+                        plugin.shutdownServer(server);
+                    } catch (IOException e) {
+                        logger.error("Failed to gracefully shutdown server {}, falling back to kill", serverName, e);
+                    }
+                }
+
+                // Wait for process to exit (up to 30 seconds)
                 Process process = runningServerProcesses.get(serverName);
                 if (process != null) {
-                    process.destroy(); // Try graceful termination first
+                    // Wait in a separate thread to not block the request too long?
+                    // Or wait a short time here and then force kill.
+                    // Let's wait up to 5 seconds here, then force kill if still running.
+                    // Realistically, shutdown might take longer, but we want to give feedback.
+                    // Better: The shutdown command is sent. We rely on the process monitor thread to detect exit.
+                    // But if it hangs, we need a way to force kill.
+                    // The "Stop" button usually implies "Stop now".
+                    // Maybe we should just send the command and return "Stopping...", and let the poller update status.
+                    // But if the user clicks Stop again, it should force kill.
+                    
+                    // Current logic: Try graceful, then force kill if we don't want to wait?
+                    // Or: Try graceful. If process is still alive after X seconds, force kill.
+                    
+                    // Let's try to wait a bit.
+                    try {
+                        // Give it 5 seconds to shut down gracefully
+                        if (process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                            ctx.status(HttpStatus.OK).result("Server stopped gracefully");
+                            return;
+                        }
+                    } catch (InterruptedException e) {
+                        // Ignore
+                    }
+                    
+                    // If we are here, it didn't exit yet. Force kill.
+                    process.destroy(); 
                 } else if (server.getPid() != null) {
-                    // If we don't have the Process object (e.g. after restart), try to kill by PID
+                    // Fallback kill by PID
                     try {
                         String os = System.getProperty("os.name").toLowerCase();
                         if (os.contains("win")) {
