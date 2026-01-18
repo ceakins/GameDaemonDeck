@@ -186,6 +186,24 @@ public class GameDaemonDeckAppTest {
     }
 
     @Test
+    public void testApiEndpointReturns401WhenNotLoggedIn() throws IOException {
+        Configuration config = new Configuration();
+        config.setAdminUsername("admin");
+        config.setAdminPasswordHash(BCrypt.hashpw("password", BCrypt.gensalt()));
+        config.setSessionTimeoutSeconds(1800);
+        when(configStore.isConfigured()).thenReturn(true);
+        when(configStore.getConfiguration()).thenReturn(Optional.of(config));
+
+        Request request = new Request.Builder()
+                .url("http://localhost:" + app.port() + "/api/servers/status")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            assertEquals(response.code(), 401, "API endpoint should return 401 Unauthorized when not logged in");
+        }
+    }
+
+    @Test
     public void testRootAllowsAuthenticatedAccessWhenConfigured() throws IOException {
         Configuration config = new Configuration();
         config.setAdminUsername("admin");

@@ -128,8 +128,13 @@ public class GameDaemonDeckApp {
             // Check for session attribute
             String username = ctx.sessionAttribute("username");
             if (username == null) {
-                // No active session, redirect to login with a message
-                ctx.redirect("/login?message=Your session has expired or you need to log in.", HttpStatus.FOUND);
+                // If API request, return 401
+                if (ctx.path().startsWith("/api/")) {
+                    ctx.status(HttpStatus.UNAUTHORIZED);
+                } else {
+                    // No active session, redirect to login with a message
+                    ctx.redirect("/login?message=Your session has expired or you need to log in.", HttpStatus.FOUND);
+                }
             }
         });
 
