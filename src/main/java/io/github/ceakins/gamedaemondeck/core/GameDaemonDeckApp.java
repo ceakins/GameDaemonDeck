@@ -24,9 +24,10 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -43,6 +44,7 @@ public class GameDaemonDeckApp {
     // Store logs for each server: Map<ServerName, Queue<LogLine>>
     private final Map<String, Queue<String>> serverLogs = new ConcurrentHashMap<>();
     private static final int MAX_LOG_LINES = 1000;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public GameDaemonDeckApp() {
         this(ConfigStore.getInstance(), new DiscordService(ConfigStore.getInstance()), new PluginManager());
@@ -98,9 +100,13 @@ public class GameDaemonDeckApp {
         // Start all bots
         discordService.startAllBots();
 
+        // Start scheduler
+        startScheduler();
+
         // Add a shutdown hook to stop all bots and close the database
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             discordService.stopAllBots();
+            scheduler.shutdown();
             configStore.close();
         }));
 
@@ -272,100 +278,10 @@ public class GameDaemonDeckApp {
 
             if (serverOpt.isPresent()) {
                 GameServer server = serverOpt.get();
-                if (server.isRunning()) {
-                    ctx.status(HttpStatus.BAD_REQUEST).result("Server is already running");
-                    return;
-                }
-
-                if (server.getServerPath() == null || server.getServerPath().isBlank()) {
-                    ctx.status(HttpStatus.BAD_REQUEST).result("Server path not configured");
-                    return;
-                }
-
                 try {
-                    List<String> command = new ArrayList<>();
-                    
-                    // Clean the server path (remove quotes if present)
-                    String serverPath = server.getServerPath();
-                    if (serverPath.startsWith("\"") && serverPath.endsWith("\"")) {
-                        serverPath = serverPath.substring(1, serverPath.length() - 1);
-                    }
-                    command.add(serverPath);
-
-                    if (server.getCommandLine() != null && !server.getCommandLine().isBlank()) {
-                        // Use regex to split arguments respecting quotes
-                        Matcher matcher = Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(server.getCommandLine());
-                        while (matcher.find()) {
-                            String arg = matcher.group(1);
-                            // Remove surrounding quotes if present
-                            if (arg.startsWith("\"") && arg.endsWith("\"")) {
-                                arg = arg.substring(1, arg.length() - 1);
-                            }
-                            command.add(arg);
-                        }
-                    }
-
-                    logger.info("Starting server {} with command: {}", serverName, command);
-
-                    ProcessBuilder pb = new ProcessBuilder(command);
-                    // Set working directory to the server executable's directory
-                    File serverFile = new File(serverPath);
-                    if (serverFile.getParentFile() != null) {
-                        pb.directory(serverFile.getParentFile());
-                    }
-                    
-                    // Redirect error stream to output stream so we can read both
-                    pb.redirectErrorStream(true);
-                    
-                    Process process = pb.start();
-                    long pid = process.pid();
-                    
-                    server.setRunning(true);
-                    server.setPid(pid);
-                    configStore.saveServer(server);
-                    runningServerProcesses.put(server.getName(), process);
-                    
-                    // Initialize log queue for this server
-                    serverLogs.put(server.getName(), new ConcurrentLinkedQueue<>());
-
-                    // Start a thread to read and log the server's output
-                    new Thread(() -> {
-                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                // Store log line in memory
-                                Queue<String> logs = serverLogs.get(serverName);
-                                if (logs != null) {
-                                    logs.add(line);
-                                    if (logs.size() > MAX_LOG_LINES) {
-                                        logs.poll(); // Remove oldest
-                                    }
-                                }
-                                // Removed: logger.info("[{}] {}", serverName, line); // Don't log to main app log anymore
-                            }
-                        } catch (IOException e) {
-                            logger.error("Error reading output from server {}", serverName, e);
-                        }
-                    }).start();
-
-                    // Monitor process exit in a separate thread
-                    new Thread(() -> {
-                        try {
-                            int exitCode = process.waitFor();
-                            logger.info("Server {} exited with code {}", server.getName(), exitCode);
-                            server.setRunning(false);
-                            server.setPid(null);
-                            configStore.saveServer(server);
-                            runningServerProcesses.remove(server.getName());
-                            // Keep logs for a while or clear them? For now, keep them so user can see why it crashed.
-                        } catch (InterruptedException e) {
-                            logger.error("Error waiting for server process", e);
-                        }
-                    }).start();
-
-                    ctx.status(HttpStatus.OK).result("Server started with PID " + pid);
-                } catch (IOException e) {
-                    logger.error("Failed to start server {}", serverName, e);
+                    startServer(server);
+                    ctx.status(HttpStatus.OK).result("Server started with PID " + server.getPid());
+                } catch (Exception e) {
                     ctx.status(HttpStatus.INTERNAL_SERVER_ERROR).result("Failed to start server: " + e.getMessage());
                 }
             } else {
@@ -381,70 +297,12 @@ public class GameDaemonDeckApp {
 
             if (serverOpt.isPresent()) {
                 GameServer server = serverOpt.get();
-                if (!server.isRunning()) {
-                    ctx.status(HttpStatus.BAD_REQUEST).result("Server is not running");
-                    return;
+                try {
+                    stopServer(server);
+                    ctx.status(HttpStatus.OK).result("Server stopped");
+                } catch (Exception e) {
+                    ctx.status(HttpStatus.INTERNAL_SERVER_ERROR).result("Failed to stop server: " + e.getMessage());
                 }
-
-                GamePlugin plugin = pluginManager.getPlugin(server.getPluginName());
-                if (plugin != null) {
-                    try {
-                        plugin.shutdownServer(server);
-                    } catch (IOException e) {
-                        logger.error("Failed to gracefully shutdown server {}, falling back to kill", serverName, e);
-                    }
-                }
-
-                // Wait for process to exit (up to 30 seconds)
-                Process process = runningServerProcesses.get(serverName);
-                if (process != null) {
-                    // Wait in a separate thread to not block the request too long?
-                    // Or wait a short time here and then force kill.
-                    // Let's wait up to 5 seconds here, then force kill if still running.
-                    // Realistically, shutdown might take longer, but we want to give feedback.
-                    // Better: The shutdown command is sent. We rely on the process monitor thread to detect exit.
-                    // But if it hangs, we need a way to force kill.
-                    // The "Stop" button usually implies "Stop now".
-                    // Maybe we should just send the command and return "Stopping...", and let the poller update status.
-                    // But if the user clicks Stop again, it should force kill.
-                    
-                    // Current logic: Try graceful, then force kill if we don't want to wait?
-                    // Or: Try graceful. If process is still alive after X seconds, force kill.
-                    
-                    // Let's try to wait a bit.
-                    try {
-                        // Give it 5 seconds to shut down gracefully
-                        if (process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
-                            ctx.status(HttpStatus.OK).result("Server stopped gracefully");
-                            return;
-                        }
-                    } catch (InterruptedException e) {
-                        // Ignore
-                    }
-                    
-                    // If we are here, it didn't exit yet. Force kill.
-                    process.destroy(); 
-                } else if (server.getPid() != null) {
-                    // Fallback kill by PID
-                    try {
-                        String os = System.getProperty("os.name").toLowerCase();
-                        if (os.contains("win")) {
-                            Runtime.getRuntime().exec("taskkill /F /PID " + server.getPid());
-                        } else {
-                            Runtime.getRuntime().exec("kill -9 " + server.getPid());
-                        }
-                    } catch (IOException e) {
-                        logger.error("Failed to kill process by PID", e);
-                    }
-                }
-
-                // Update state immediately for UI feedback, though the process watcher thread should also handle it
-                server.setRunning(false);
-                server.setPid(null);
-                configStore.saveServer(server);
-                runningServerProcesses.remove(serverName);
-
-                ctx.status(HttpStatus.OK).result("Server stopped");
             } else {
                 ctx.status(HttpStatus.NOT_FOUND).result("Server not found");
             }
@@ -460,6 +318,7 @@ public class GameDaemonDeckApp {
                     // Check if configured
                     boolean configured = server.getServerPath() != null && !server.getServerPath().isBlank();
                     status.put("configured", configured);
+                    status.put("restartTimes", server.getRestartTimes());
                     return status;
                 })
                 .collect(Collectors.toList());
@@ -611,6 +470,23 @@ public class GameDaemonDeckApp {
                 } else {
                     ctx.status(HttpStatus.NOT_FOUND).result("Plugin not found");
                 }
+            } else {
+                ctx.status(HttpStatus.NOT_FOUND).result("Server not found");
+            }
+        });
+
+        app.post("/api/servers/{name}/restart-times", ctx -> {
+            String serverName = ctx.pathParam("name");
+            Optional<GameServer> serverOpt = configStore.getServers().stream()
+                .filter(s -> s.getName().equals(serverName))
+                .findFirst();
+
+            if (serverOpt.isPresent()) {
+                GameServer server = serverOpt.get();
+                List<String> restartTimes = ctx.bodyAsClass(List.class);
+                server.setRestartTimes(restartTimes);
+                configStore.saveServer(server);
+                ctx.status(HttpStatus.OK);
             } else {
                 ctx.status(HttpStatus.NOT_FOUND).result("Server not found");
             }
@@ -794,6 +670,171 @@ public class GameDaemonDeckApp {
             ctx.sessionAttribute("username", null);
             ctx.redirect("/login?message=You have been successfully logged out.", HttpStatus.FOUND);
         });
+    }
+
+    private void startScheduler() {
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                LocalTime now = LocalTime.now();
+                String currentTime = now.format(DateTimeFormatter.ofPattern("HH:mm"));
+                
+                for (GameServer server : configStore.getServers()) {
+                    if (server.isRunning() && server.getRestartTimes() != null && server.getRestartTimes().contains(currentTime)) {
+                        logger.info("Scheduled restart for server: {}", server.getName());
+                        // Run restart in a separate thread to avoid blocking the scheduler
+                        new Thread(() -> {
+                            try {
+                                stopServer(server);
+                                // Wait a bit before starting to ensure resources are freed
+                                Thread.sleep(5000);
+                                startServer(server);
+                            } catch (Exception e) {
+                                logger.error("Error during scheduled restart for {}", server.getName(), e);
+                            }
+                        }).start();
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error in scheduler", e);
+            }
+        }, 0, 1, TimeUnit.MINUTES);
+    }
+
+    private void startServer(GameServer server) throws IOException {
+        if (server.isRunning()) {
+            throw new IllegalStateException("Server is already running");
+        }
+
+        if (server.getServerPath() == null || server.getServerPath().isBlank()) {
+            throw new IllegalStateException("Server path not configured");
+        }
+
+        List<String> command = new ArrayList<>();
+        
+        // Clean the server path (remove quotes if present)
+        String serverPath = server.getServerPath();
+        if (serverPath.startsWith("\"") && serverPath.endsWith("\"")) {
+            serverPath = serverPath.substring(1, serverPath.length() - 1);
+        }
+        command.add(serverPath);
+
+        if (server.getCommandLine() != null && !server.getCommandLine().isBlank()) {
+            // Use regex to split arguments respecting quotes
+            Matcher matcher = Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(server.getCommandLine());
+            while (matcher.find()) {
+                String arg = matcher.group(1);
+                // Remove surrounding quotes if present
+                if (arg.startsWith("\"") && arg.endsWith("\"")) {
+                    arg = arg.substring(1, arg.length() - 1);
+                }
+                command.add(arg);
+            }
+        }
+
+        logger.info("Starting server {} with command: {}", server.getName(), command);
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        // Set working directory to the server executable's directory
+        File serverFile = new File(serverPath);
+        if (serverFile.getParentFile() != null) {
+            pb.directory(serverFile.getParentFile());
+        }
+        
+        // Redirect error stream to output stream so we can read both
+        pb.redirectErrorStream(true);
+        
+        Process process = pb.start();
+        long pid = process.pid();
+        
+        server.setRunning(true);
+        server.setPid(pid);
+        configStore.saveServer(server);
+        runningServerProcesses.put(server.getName(), process);
+        
+        // Initialize log queue for this server
+        serverLogs.put(server.getName(), new ConcurrentLinkedQueue<>());
+
+        // Start a thread to read and log the server's output
+        new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // Store log line in memory
+                    Queue<String> logs = serverLogs.get(server.getName());
+                    if (logs != null) {
+                        logs.add(line);
+                        if (logs.size() > MAX_LOG_LINES) {
+                            logs.poll(); // Remove oldest
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                logger.error("Error reading output from server {}", server.getName(), e);
+            }
+        }).start();
+
+        // Monitor process exit in a separate thread
+        new Thread(() -> {
+            try {
+                int exitCode = process.waitFor();
+                logger.info("Server {} exited with code {}", server.getName(), exitCode);
+                server.setRunning(false);
+                server.setPid(null);
+                configStore.saveServer(server);
+                runningServerProcesses.remove(server.getName());
+            } catch (InterruptedException e) {
+                logger.error("Error waiting for server process", e);
+            }
+        }).start();
+    }
+
+    private void stopServer(GameServer server) throws IOException {
+        if (!server.isRunning()) {
+            throw new IllegalStateException("Server is not running");
+        }
+
+        GamePlugin plugin = pluginManager.getPlugin(server.getPluginName());
+        if (plugin != null) {
+            try {
+                plugin.shutdownServer(server);
+            } catch (IOException e) {
+                logger.error("Failed to gracefully shutdown server {}, falling back to kill", server.getName(), e);
+            }
+        }
+
+        // Wait for process to exit (up to 30 seconds)
+        Process process = runningServerProcesses.get(server.getName());
+        if (process != null) {
+            try {
+                // Give it 5 seconds to shut down gracefully
+                if (process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    return;
+                }
+            } catch (InterruptedException e) {
+                // Ignore
+            }
+            
+            // If we are here, it didn't exit yet. Force kill.
+            process.destroy(); 
+        } else if (server.getPid() != null) {
+            // Fallback kill by PID
+            try {
+                String os = System.getProperty("os.name").toLowerCase();
+                if (os.contains("win")) {
+                    Runtime.getRuntime().exec("taskkill /F /PID " + server.getPid());
+                } else {
+                    Runtime.getRuntime().exec("kill -9 " + server.getPid());
+                }
+            } catch (IOException e) {
+                logger.error("Failed to kill process by PID", e);
+            }
+        }
+
+        // Update state immediately for UI feedback, though the process watcher thread should also handle it
+        server.setRunning(false);
+        server.setPid(null);
+        configStore.saveServer(server);
+        runningServerProcesses.remove(server.getName());
     }
 
     public static void main(String[] args) {

@@ -159,25 +159,24 @@
                                 <div class="card-header d-flex justify-content-between" th:style="'background-color:' + ${server.headerColor} + '; color:' + ${server.fontColor}">
                                     <span th:text="${server.name}">Server Name</span>
                                     <div class="d-flex align-items-center">
-                                        <a href="#" class="btn btn-sm me-2" id="log-btn" th:style="'color:' + ${server.fontColor} + '; display: none;'" data-bs-toggle="modal" data-bs-target="#logViewerModal" th:attr="data-bs-server-name=${server.name}"><i class="bi bi-file-text"></i></a>
+                                        <a href="#" class="btn btn-sm me-2 log-btn" th:style="'color:' + ${server.fontColor} + '; display: none;'" data-bs-toggle="modal" data-bs-target="#logViewerModal" th:attr="data-bs-server-name=${server.name}"><i class="bi bi-file-text"></i></a>
+                                        <a href="#" class="btn btn-sm me-2 schedule-btn" th:style="'color:' + ${server.fontColor}" data-bs-toggle="modal" data-bs-target="#scheduleModal" th:attr="data-bs-server-name=${server.name}"><i class="bi bi-clock"></i></a>
                                         <a href="#" class="btn btn-sm" th:style="'color:' + ${server.fontColor}" data-bs-toggle="modal" data-bs-target="#serverConfigModal" th:attr="data-bs-server-name=${server.name}"><i class="bi bi-gear"></i></a>
                                     </div>
                                 </div>
                                 <div class="card-body">
                                     <p class="card-text" th:text="'AppID: ' + ${server.appId}">AppID: N/A</p>
                                     <p class="card-text" th:text="'Game: ' + ${server.pluginName}">Game: N/A</p>
-                                    <p class="card-text" id="status-text">Status:
+                                    <p class="card-text status-text">Status:
                                         <span th:if="${server.running}" class="text-success"><i class="bi bi-circle-fill"></i> Running</span>
                                         <span th:unless="${server.running}" class="text-danger"><i class="bi bi-circle-fill"></i> Stopped</span>
                                     </p>
-                                    <p class="card-text" id="pid-text" th:text="${server.pid != null} ? 'PID: ' + ${server.pid} : ''"></p>
+                                    <p class="card-text pid-text" th:text="${server.pid != null} ? 'PID: ' + ${server.pid} : ''"></p>
                                     <div class="d-flex justify-content-between">
-                                        <button class="btn btn-sm btn-primary" 
-                                                id="start-btn"
+                                        <button class="btn btn-sm btn-primary start-btn" 
                                                 th:attr="onclick='startServer(\'' + ${server.name} + '\')'"
                                                 th:disabled="${server.running or server.serverPath == null or server.serverPath.isEmpty()}">Start</button>
-                                        <button class="btn btn-sm btn-danger" 
-                                                id="stop-btn"
+                                        <button class="btn btn-sm btn-danger stop-btn" 
                                                 th:attr="onclick='stopServer(\'' + ${server.name} + '\')'"
                                                 th:disabled="${!server.running}">Stop</button>
                                         <button class="btn btn-sm btn-teal" th:disabled="${server.serverPath == null or server.serverPath.isEmpty()}">Update</button>
@@ -324,6 +323,28 @@
         </div>
     </div>
 
+    <!-- Schedule Modal -->
+    <div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scheduleModalLabel">Restart Schedule</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="scheduleList" class="mb-3">
+                        <!-- Time inputs will be added here -->
+                    </div>
+                    <button type="button" class="btn btn-outline-success btn-sm" id="addScheduleBtn"><i class="bi bi-plus-lg"></i> Add Time</button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveScheduleBtn">Save Schedule</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- File Browser Modal -->
     <div class="modal fade" id="fileBrowserModal" tabindex="-1" aria-labelledby="fileBrowserModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -404,18 +425,21 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             // --- Polling Logic ---
+            let serverStatuses = {}; // Cache statuses to access restartTimes
+
             function updateServerStatus() {
                 fetch('/api/servers/status')
                     .then(response => response.json())
                     .then(statuses => {
                         statuses.forEach(status => {
+                            serverStatuses[status.name] = status; // Cache for schedule modal
                             const card = document.getElementById('server-card-' + status.name);
                             if (card) {
-                                const statusText = card.querySelector('#status-text');
-                                const pidText = card.querySelector('#pid-text');
-                                const startBtn = card.querySelector('#start-btn');
-                                const stopBtn = card.querySelector('#stop-btn');
-                                const logBtn = card.querySelector('#log-btn');
+                                const statusText = card.querySelector('.status-text');
+                                const pidText = card.querySelector('.pid-text');
+                                const startBtn = card.querySelector('.start-btn');
+                                const stopBtn = card.querySelector('.stop-btn');
+                                const logBtn = card.querySelector('.log-btn');
 
                                 if (status.running) {
                                     statusText.innerHTML = 'Status: <span class="text-success"><i class="bi bi-circle-fill"></i> Running</span>';
@@ -446,6 +470,80 @@
             setInterval(updateServerStatus, 3000);
             // Initial call
             updateServerStatus();
+
+            // --- Schedule Modal Logic ---
+            const scheduleModal = document.getElementById('scheduleModal');
+            const scheduleList = document.getElementById('scheduleList');
+            let currentScheduleServerName = null;
+
+            scheduleModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const serverName = button.getAttribute('data-bs-server-name');
+                currentScheduleServerName = serverName;
+                
+                scheduleList.innerHTML = ''; // Clear previous
+                
+                // Get existing times from cached status
+                const status = serverStatuses[serverName];
+                const times = (status && status.restartTimes) ? status.restartTimes : [];
+                
+                times.forEach(time => addTimeInput(time));
+                
+                // If empty, add one empty input
+                if (times.length === 0) {
+                    addTimeInput('');
+                }
+            });
+
+            function addTimeInput(value) {
+                const div = document.createElement('div');
+                div.classList.add('input-group', 'mb-2');
+                
+                const input = document.createElement('input');
+                input.type = 'time';
+                input.classList.add('form-control');
+                input.value = value;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.classList.add('btn', 'btn-outline-danger');
+                removeBtn.type = 'button';
+                removeBtn.innerHTML = '<i class="bi bi-dash-lg"></i>';
+                removeBtn.addEventListener('click', () => div.remove());
+                
+                div.appendChild(input);
+                div.appendChild(removeBtn);
+                scheduleList.appendChild(div);
+            }
+
+            document.getElementById('addScheduleBtn').addEventListener('click', () => {
+                addTimeInput('');
+            });
+
+            document.getElementById('saveScheduleBtn').addEventListener('click', () => {
+                const inputs = scheduleList.querySelectorAll('input[type="time"]');
+                const times = Array.from(inputs)
+                    .map(input => input.value)
+                    .filter(val => val !== ''); // Filter out empty
+
+                fetch('/api/servers/' + currentScheduleServerName + '/restart-times', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(times)
+                })
+                .then(response => {
+                    if (response.ok) {
+                        const modal = bootstrap.Modal.getInstance(scheduleModal);
+                        modal.hide();
+                        // Force update status to refresh cache
+                        updateServerStatus();
+                    } else {
+                        alert('Failed to save schedule');
+                    }
+                })
+                .catch(err => alert('Error saving schedule: ' + err));
+            });
 
             // --- Log Viewer Logic ---
             const logViewerModal = document.getElementById('logViewerModal');
@@ -986,6 +1084,32 @@
                     alert('Configuration file created successfully!');
                 })
                 .catch(err => alert('Error creating config: ' + err.message));
+            });
+
+            document.getElementById('saveScheduleBtn').addEventListener('click', () => {
+                const inputs = scheduleList.querySelectorAll('input[type="time"]');
+                const times = Array.from(inputs)
+                    .map(input => input.value)
+                    .filter(val => val !== ''); // Filter out empty
+
+                fetch('/api/servers/' + currentScheduleServerName + '/restart-times', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(times)
+                })
+                .then(response => {
+                    if (response.ok) {
+                        const modal = bootstrap.Modal.getInstance(scheduleModal);
+                        modal.hide();
+                        // Force update status to refresh cache
+                        updateServerStatus();
+                    } else {
+                        alert('Failed to save schedule');
+                    }
+                })
+                .catch(err => alert('Error saving schedule: ' + err));
             });
 
             const urlParams = new URLSearchParams(window.location.search);

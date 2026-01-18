@@ -1,6 +1,8 @@
 package io.github.ceakins.gamedaemondeck.db;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GameServer implements Serializable {
 
@@ -15,6 +17,7 @@ public class GameServer implements Serializable {
     private String serverPath;
     private String commandLine;
     private Long pid;
+    private List<String> restartTimes = new ArrayList<>();
 
     public GameServer() {
     }
@@ -89,5 +92,13 @@ public class GameServer implements Serializable {
 
     public void setPid(Long pid) {
         this.pid = pid;
+    }
+
+    public List<String> getRestartTimes() {
+        return restartTimes;
+    }
+
+    public void setRestartTimes(List<String> restartTimes) {
+        this.restartTimes = restartTimes;
     }
 }
